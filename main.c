@@ -20,8 +20,6 @@ void print_A(float A[][COLS]){
     }
 }
 
-float * recv_OL_values(int * rows, int * cols){}
-
 void copy_mat(float from[][COLS], float to[][COLS]) {
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
@@ -30,8 +28,18 @@ void copy_mat(float from[][COLS], float to[][COLS]) {
     }
 }
 
-void get_overlaps_address(int indexes_arr[numprocs-1][2], int * overlaps_recv_address[numprocs-1], int * overlaps_send_address[numprocs-1]){
-
+void get_overlaps_address(int A[ROWS][COLS], int indexes_arr[numprocs-1][2], int * overlaps_address[numprocs-1]){
+    /* example for indexes_arr
+     * indexes_arr = [  [row_index, col_index],         -match with process 1
+                        [row_index, col_index],         -match with process 2
+                        ...
+     */
+    for(int i = 0; i < numprocs-1; i++){
+        if(indexes_arr[i][0] != -1)
+            overlaps_address[i] = &A[indexes_arr[i][0]][indexes_arr[i][1]];
+        else
+            overlaps_address[i] = NULL;
+    }
 }
 
 void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * overlaps_send_address[numprocs-1], int overlaps_recv_sizes[numprocs-1], int overlaps_send_sizes[numprocs-1]){
@@ -49,7 +57,6 @@ void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * ove
         for(int p_id = 0; p_id < numprocs-1; p_id++){    // p_id represent the p_id+1 process
             if(overlaps_recv_sizes[p_id] != 0 || overlaps_send_sizes[p_id] != 0) {
                 // recv/send boundary values from/to process p_id+1 with overlaps_sizes[p_id]
-                *overlaps_recv_address[p_id] = 50;     // represent the received value for now
 
                 // when running on mpi:
                 /*
@@ -74,47 +81,46 @@ void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * ove
         }
     }
 }
-/*
-int * count_overlaps(float A[][COLS]){
-    int counter[numprocs] = {0};
-    for(int i = 0; i < ROWS; i++){
-        if(A[i][0] < 0)
-            counter[-(int)A[i][0]]++;
-        if(A[i][COLS-1] < 0)
-            counter[-(int)A[i][COLS-1]]++;
-    }
-    for(int i = 1; i < COLS-1; i++){
-        if(A[0][i] < 0)
-            counter[-(int)A[0][i]]++;
-        if(A[ROWS-1][i] < 0)
-            counter[-(int)A[ROWS-1][i]]++;
-    }
-    return counter;
-}
-
-void get_overlaps(float A[][COLS]){
-    int arr[numprocs][][2];
-}
-*/
 
 int main() {
 
     int my_id = 1;
+
+
+    // receive from master
     float A[ROWS][COLS] = {{60 ,60 ,60 ,60 ,60 ,60 },
                            {60 ,40 ,40 ,40 ,40 ,60 },
                            {60 ,40 ,40 ,40 ,40 ,60 },
                            {40 ,40 ,20 ,20 ,40 ,40 }};
 
 
-    int overlaps_sizes[numprocs-1] = {0,2,2,0};  // represent the num of cells that the process has in commen
-    int overlaps_recv[numprocs - 1][2] = {{-1,-1},    // no overlaps with itself
-                                             {3,0},   // over laps with process 2 start at index [3][0] until [3][1]
-                                             {3,4},   // over laps with process 3 start at index [3][4] until [3][5]
-                                             {-1,-1}   // no overlaps with process 4
-                                            };
-    int recv_from[][3] = {{}};
+    // receive from master
+    int overlaps_recv_sizes[numprocs-1] = {0,2,2,0};     // represent the num of cells that the process has in common
 
-    iterate(A, overlaps_recv, overlaps_sizes);
+    // receive from master
+    int overlaps_recv_indexes[numprocs - 1][2] = {{-1,-1},  // no overlaps with itself
+                                                  {3,0},    // over laps with process 2 start at index [3][0] until [3][1]
+                                                  {3,4},    // over laps with process 3 start at index [3][4] until [3][5]
+                                                  {-1,-1}   // no overlaps with process 4
+                                                  };
+
+    // receive from master
+    int overlaps_send_sizes[numprocs-1] = {0,1,1,0};     // represent the num of cells that the process has in common
+
+    // receive from master
+    int overlaps_send_indexes[numprocs - 1][2] = {{-1,-1},  // no overlaps with itself
+                                                  {2,1},    // over laps with process 2 start at index [3][0] until [3][1]
+                                                  {2,4},    // over laps with process 3 start at index [3][4] until [3][5]
+                                                  {-1,-1}   // no overlaps with process 4
+                                                  };
+
+    int * overlaps_recv_address[numprocs-1];
+    get_overlaps_address(A, overlaps_recv_address, overlaps_recv_indexes);
+    int * overlaps_send_address[numprocs-1];
+    get_overlaps_address(A, overlaps_send_address, overlaps_send_indexes);
+
+    void iterate(A, overlaps_recv_address, overlaps_send_address, overlaps_recv_sizes, overlaps_send_sizes);
+
     print_A(A);
     return 0;
 }
