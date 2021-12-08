@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <mpi.h>
 
 #define ROWS 4
 #define COLS 6
@@ -8,7 +9,13 @@
 #define dx 1
 #define dy 1
 
-#define numprocs 5
+#define numprocs 4
+
+
+// global vars 
+
+int my_id;
+MPI_Status status;
 
 
 void print_A(float A[][COLS]){
@@ -28,7 +35,7 @@ void copy_mat(float from[][COLS], float to[][COLS]) {
     }
 }
 
-void get_overlaps_address(int A[ROWS][COLS], int indexes_arr[numprocs-1][2], int * overlaps_address[numprocs-1]){
+void get_overlaps_address(int A[ROWS][COLS], int indexes_arr[numprocs][2], int * overlaps_address[numprocs]){
     /* example for indexes_arr
      * indexes_arr = [  [row_index, col_index],         -match with process 1
                         [row_index, col_index],         -match with process 2
@@ -42,7 +49,7 @@ void get_overlaps_address(int A[ROWS][COLS], int indexes_arr[numprocs-1][2], int
     }
 }
 
-void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * overlaps_send_address[numprocs-1], int overlaps_recv_sizes[numprocs-1], int overlaps_send_sizes[numprocs-1]){
+void iterate(float A[][COLS], int * overlaps_recv_address[numprocs], int * overlaps_send_address[numprocs], int overlaps_recv_sizes[numprocs], int overlaps_send_sizes[numprocs]){
     float A_copy[ROWS][COLS];
     for(int i = 0; i < ITERS; i++){
         copy_mat(A, A_copy);
@@ -54,13 +61,13 @@ void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * ove
             }
         }
         
-        for(int p_id = 0; p_id < numprocs-1; p_id++){    // p_id represent the p_id+1 process
+        for(int p_id = 0; p_id < numprocs; p_id++){    // p_id represent the p_id+1 process
             if(overlaps_recv_sizes[p_id] != 0 || overlaps_send_sizes[p_id] != 0) {
                 // recv/send boundary values from/to process p_id+1 with overlaps_sizes[p_id]
 
                 // when running on mpi:
-                /*
-                int tag = i*numprocs*numprocs*2 + my_id+p_id+my_id*p_id // hash table with symmetric for my_id & p_id
+                
+                int tag = i*numprocs*numprocs*2 + my_id+p_id+my_id*p_id; // hash table with symmetric for my_id & p_id
 
                 MPI_Sendrecv(// send details
                                 overlaps_send_address[p_id],
@@ -74,17 +81,19 @@ void iterate(float A[][COLS], int * overlaps_recv_address[numprocs-1], int * ove
                                 MPI_FLOAT,
                                 p_id, // sender,
                                 tag, //tag_recv,
-                                comm,
+                                MPI_COMM_WORLD,
                                 status);
-                */
+                
             }
         }
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
 
-    int my_id = 1;
+    // for debug only
+    int i = 1;
+    while(i);
 
 
     // receive from master
@@ -94,29 +103,27 @@ int main() {
                            {40 ,40 ,20 ,20 ,40 ,40 }};
 
 
-    // receive from master
-    int overlaps_recv_sizes[numprocs-1] = {0,2,2,0};     // represent the num of cells that the process has in common
+    int overlaps_recv_sizes[numprocs] = {0,2,2,0};     // represent the num of cells that the process has in common
 
-    // receive from master
-    int overlaps_recv_indexes[numprocs - 1][2] = {{-1,-1},  // no overlaps with itself
+    int overlaps_recv_indexes[numprocs][2] = {{-1,-1},  // no overlaps with itself
                                                   {3,0},    // over laps with process 2 start at index [3][0] until [3][1]
                                                   {3,4},    // over laps with process 3 start at index [3][4] until [3][5]
                                                   {-1,-1}   // no overlaps with process 4
                                                   };
 
-    // receive from master
-    int overlaps_send_sizes[numprocs-1] = {0,1,1,0};     // represent the num of cells that the process has in common
+    int overlaps_send_sizes[numprocs] = {0,1,1,0};     // represent the num of cells that the process has in common
 
-    // receive from master
-    int overlaps_send_indexes[numprocs - 1][2] = {{-1,-1},  // no overlaps with itself
+    int overlaps_send_indexes[numprocs][2] = {{-1,-1},  // no overlaps with itself
                                                   {2,1},    // over laps with process 2 start at index [3][0] until [3][1]
                                                   {2,4},    // over laps with process 3 start at index [3][4] until [3][5]
                                                   {-1,-1}   // no overlaps with process 4
                                                   };
 
-    int * overlaps_recv_address[numprocs-1];
+
+
+    int * overlaps_recv_address[numprocs];
     get_overlaps_address(A, overlaps_recv_address, overlaps_recv_indexes);
-    int * overlaps_send_address[numprocs-1];
+    int * overlaps_send_address[numprocs];
     get_overlaps_address(A, overlaps_send_address, overlaps_send_indexes);
 
     void iterate(A, overlaps_recv_address, overlaps_send_address, overlaps_recv_sizes, overlaps_send_sizes);
